@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Literal, TypedDict
 
-import cv2
 import numpy as np
 
 from src.config import KNOWN_STATUS, UNKNOWN_STATUS
@@ -51,6 +50,9 @@ class FaceRecognitionModel(ABC):
         """Optional hook for model-specific files."""
 
     def predict(self, face_bgr: np.ndarray, gallery: list[tuple[str, np.ndarray]]) -> PredictionOutput:
+        if not gallery:
+            return {"student_id": None, "confidence": 0.0, "status": UNKNOWN_STATUS}
+
         encoding = self.encode(face_bgr)
         return self.match_embedding(encoding["embedding"], gallery)
 
@@ -84,6 +86,8 @@ class FaceRecognitionModel(ABC):
     def preprocess(self, face_bgr: np.ndarray, size: tuple[int, int]) -> np.ndarray:
         if face_bgr is None or face_bgr.size == 0:
             raise ValueError("Empty face image received.")
+        import cv2
+
         return cv2.resize(face_bgr, size)
 
     @staticmethod

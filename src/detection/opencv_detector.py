@@ -6,6 +6,16 @@ import numpy as np
 from src.config import MIN_FACE_SIZE
 
 
+_DETECTOR: cv2.CascadeClassifier | None = None
+
+
+def _get_detector() -> cv2.CascadeClassifier:
+    global _DETECTOR
+    if _DETECTOR is None:
+        _DETECTOR = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+    return _DETECTOR
+
+
 def detect_faces(frame: np.ndarray) -> list[tuple[int, int, int, int]]:
     """
     Input: full BGR image/frame.
@@ -15,8 +25,7 @@ def detect_faces(frame: np.ndarray) -> list[tuple[int, int, int, int]]:
         return []
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    detector = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-    boxes = detector.detectMultiScale(
+    boxes = _get_detector().detectMultiScale(
         gray,
         scaleFactor=1.1,
         minNeighbors=5,

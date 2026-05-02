@@ -13,7 +13,7 @@ EXPORTS_DIR = ROOT_DIR / "exports"
 DATABASE_PATH = ROOT_DIR / "attendance.db"
 SCHEMA_PATH = ROOT_DIR / "src" / "database" / "schema.sql"
 
-ACTIVE_MODEL = "dummy"
+ACTIVE_MODEL = "arcface"
 UNKNOWN_LABEL = "Unknown"
 KNOWN_STATUS = "known"
 UNKNOWN_STATUS = "unknown"

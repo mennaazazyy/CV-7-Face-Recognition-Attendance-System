@@ -133,13 +133,18 @@ Do not use the dummy model in final evaluation.
 `src/config.py` controls the active backend:
 
 ```python
+ACTIVE_MODEL = "arcface"
+```
+
+For foundation-only testing this can be changed back to:
+
+```python
 ACTIVE_MODEL = "dummy"
 ```
 
-Later this can be changed to:
+Later this can also be changed to:
 
 ```python
-ACTIVE_MODEL = "arcface"
 ACTIVE_MODEL = "facenet"
 ACTIVE_MODEL = "dlib"
 ACTIVE_MODEL = "lbph"
@@ -276,6 +281,67 @@ python3 scripts/smoke_test_dummy.py
 ```
 
 The dummy smoke test verifies database initialization, deterministic dummy encoding, template saving, gallery loading, standard prediction output, attendance marking, duplicate attendance prevention, and CSV export.
+
+## ArcFace Test
+
+Install the foundation and ArcFace dependencies:
+
+```bash
+pip install -r requirements.txt
+pip install insightface onnxruntime
+```
+
+Compile-check the project:
+
+```bash
+python3 -m compileall src/config.py src/detection src/models src/database src/pipeline src/evaluation
+```
+
+Run the one-person ArcFace webcam test:
+
+```bash
+python3 scripts/test_arcface_single_person.py
+```
+
+The script registers one student, captures 10 webcam face samples, saves an ArcFace template under `model_name = "arcface"`, reopens recognition mode, displays `student_id`, student name, confidence, and status, and marks attendance when recognized. Press `q` to quit.
+
+Enroll an ArcFace student without immediately starting attendance:
+
+```bash
+python3 scripts/enroll_arcface_person.py --id "22-101004" --name "Student Name"
+```
+
+Run ArcFace recognition only:
+
+```bash
+python3 scripts/recognize_arcface_only.py
+```
+
+Tune the known/unknown threshold:
+
+```bash
+python3 scripts/recognize_arcface_only.py --threshold 0.55
+```
+
+Run the blink liveness challenge before recognition:
+
+```bash
+python3 scripts/recognize_arcface_only.py --antispoof
+```
+
+Run DeepFace anti-spoofing before recognition:
+
+```bash
+python3 scripts/recognize_arcface_only.py --deep-antispoof
+```
+
+Use both anti-spoofing checks:
+
+```bash
+python3 scripts/recognize_arcface_only.py --antispoof --deep-antispoof
+```
+
+DeepFace anti-spoofing requires the optional packages listed in `requirements.txt`.
 
 ## Git Setup
 

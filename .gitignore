@@ -1,6 +1,8 @@
 __pycache__/
 *.py[cod]
 .venv/
+.matplotlib-cache/
+.deepface-cache/
 attendance.db
 exports/
 /models/
