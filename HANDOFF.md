@@ -33,7 +33,7 @@ pip install -r requirements.txt
 | Person | Model | File | Status |
 |--------|-------|------|--------|
 | **Menna** | ArcFace | `src/models/arcface_encoder.py` | Done |
-| **Rahma** | FaceNet | `src/models/facenet_encoder.py` | Needs implementation |
+| **Rahma** | FaceNet | `src/models/facenet_encoder.py` | Done |
 | **Seif** | dlib | `src/models/dlib_encoder.py` | Needs implementation |
 | **Ahmed** | LBPH | `src/models/lbph_encoder.py` | Already implemented — needs testing + evaluation dataset |
 
@@ -43,7 +43,7 @@ pip install -r requirements.txt
 
 ## Detailed Instructions Per Person
 
-### Rahma — FaceNet
+### Rahma — FaceNet ✅ Implemented
 
 **Setup:**
 ```bash
@@ -51,22 +51,45 @@ git pull origin main
 pip install facenet-pytorch
 ```
 
-**What to do:**
+**Implementation notes (`src/models/facenet_encoder.py`):**
 
-1. Open `src/models/facenet_encoder.py`
-2. Implement `encode()`:
-   - Load InceptionResnetV1 pretrained on `vggface2` (from `facenet_pytorch`)
-   - Convert the BGR face crop to RGB
-   - Resize/normalize to tensor as FaceNet expects
-   - Extract the embedding vector
-   - L2-normalize: `embedding = self.l2_normalize(embedding)`
-   - Return: `self.make_output(embedding)`
-3. Test:
+- Lazily loads `InceptionResnetV1(pretrained="vggface2")` on first call (cached on the instance) — first encode pays the download cost, subsequent calls are fast.
+- Auto-selects CUDA if available, otherwise CPU.
+- Pipeline: BGR → resize to `IMAGE_SIZE` (160×160 via `self.preprocess`) → BGR→RGB → normalize `(x - 127.5) / 128.0` → CHW tensor → forward pass → 512-D embedding → `l2_normalize` → `make_output`.
+- Uses cosine similarity (default `lower_score_is_better = False`).
+
+**Phase 2 testing — done (non-interactive smoke test):**
+
+Ran `tests/smoke_facenet.py` which validates the encoder pipeline end-to-end without a webcam:
+
+| Check | Result |
+|---|---|
+| Output shape / dtype | `(512,) float32` ✅ |
+| `model_name` field | `"facenet"` ✅ |
+| L2 norm of embedding | `1.000000` ✅ |
+| Determinism (same image → same embedding) | cosine `1.000000` ✅ |
+| Different inputs → lower similarity than self | ✅ |
+| `predict()` returns `known` for matching gallery entry | ✅ |
+| `predict()` returns `unknown` on empty gallery | ✅ |
+| `predict()` returns `unknown` when threshold is unreachable | ✅ |
+| First encode (incl. `vggface2` weight download + model build) | ~65 s |
+| Warm encode latency (CPU) | **~30 ms/face** |
+
+Run it yourself any time:
+```bash
+PYTHONPATH=. python tests/smoke_facenet.py
+```
+
+**Still to do (requires a webcam / real faces):**
+
+1. Webcam smoke test:
    ```bash
    python scripts/enroll_person.py --id "22-XXXXXX" --name "Rahma" --model facenet --verify
    python scripts/recognize_live.py --model facenet --show-scores
    ```
-4. If the default threshold (0.65) doesn't work well, update `MODEL_THRESHOLDS["facenet"]` in `src/config.py`
+2. Tune `MODEL_THRESHOLDS["facenet"]` in `src/config.py` if 0.65 doesn't separate known/unknown cleanly on real faces. Note: random-noise inputs give cosine ~0.97-0.98 between distinct images (no facial structure to separate them); with real faces the spread is much wider, so the 0.65 default should be roughly right but worth confirming.
+
+**Dependency note:** `facenet-pytorch` pins `numpy<2.0`. If `pip install facenet-pytorch` upgrades/downgrades numpy and breaks something else, run `pip install "numpy<2.0" --force-reinstall` afterwards.
 
 ---
 
