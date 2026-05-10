@@ -14,11 +14,14 @@ import cv2
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+import numpy as np
+
 from src.config import MODEL_THRESHOLDS  # noqa: E402
 from src.antispoof.minifasnet import AntiSpoofChecker, BlinkChallengeAntiSpoofChecker  # noqa: E402
 from src.database.db import connect, load_gallery  # noqa: E402
 from src.detection import crop_faces  # noqa: E402
 from src.models.arcface_encoder import ArcFaceEncoder  # noqa: E402
+from src.models.base_model import FaceRecognitionModel  # noqa: E402
 
 
 DEFAULT_PROCESS_EVERY_N_FRAMES = 10
@@ -36,6 +39,7 @@ def main() -> None:
     deep_antispoof_state: bool | None = None
     process_every = min(args.process_every, 3) if args.antispoof else args.process_every
     gallery = [] if args.empty_gallery else load_gallery("arcface")
+    show_scores = args.show_scores
 
     if not gallery:
         print("No ArcFace templates loaded. Every detected face will be labeled Unknown.")
@@ -77,6 +81,20 @@ def main() -> None:
 
                 if liveness_passed and deep_passed:
                     last_prediction = model.predict(face_bgr, gallery)
+                    if show_scores and gallery:
+                        try:
+                            enc = model.encode(face_bgr)
+                            scores = sorted(
+                                [
+                                    (sid, FaceRecognitionModel.cosine_similarity(enc["embedding"], emb))
+                                    for sid, emb in gallery
+                                ],
+                                key=lambda x: x[1],
+                                reverse=True,
+                            )
+                            last_prediction["_scores"] = scores[:3]
+                        except Exception:
+                            pass
                 else:
                     last_prediction = {"student_id": None, "confidence": 0.0, "status": "unknown"}
             except ValueError:
@@ -118,6 +136,16 @@ def main() -> None:
             label_origin = (30, 45)
 
         cv2.putText(frame, label.strip(), label_origin, cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+
+        if show_scores:
+            scores_list = prediction.get("_scores", [])
+            for i, (sid, sc) in enumerate(scores_list):
+                name_i = get_student_name(sid) or sid
+                score_label = f"{name_i}: {sc:.3f}"
+                score_color = (0, 200, 255) if sc >= model.threshold else (150, 150, 150)
+                cv2.putText(frame, score_label, (10, CAMERA_HEIGHT - 20 - i * 25),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, score_color, 1)
+
         cv2.imshow("ArcFace Recognition Only", frame)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -155,6 +183,11 @@ def parse_args():
         "--deep-antispoof",
         action="store_true",
         help="Require DeepFace anti-spoofing before recognizing a face.",
+    )
+    parser.add_argument(
+        "--show-scores",
+        action="store_true",
+        help="Overlay the top-3 gallery match scores in the frame — useful for debugging mis-identifications.",
     )
     return parser.parse_args()
 
